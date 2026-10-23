@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>과정 상세 안내 | 2026 부산대학교 교직원 직무연수</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- PapaParse CDN for CSV Parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-800">
+
+  <!-- 상단 GNB 헤더 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-blue-900 flex items-center justify-center text-white font-bold text-sm tracking-wider shadow-sm">
+            PNU
+          </div>
+          <div>
+            <span class="text-xs text-blue-900 font-bold tracking-tight block">부산대학교 HRD</span>
+            <span class="text-base font-bold text-slate-900 tracking-tight leading-none">2026 교직원 직무연수</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        <span id="last-updated-time" class="hidden md:inline-block text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full font-medium">
+          실시간 연동 중...
+        </span>
+        <button id="refresh-detail-btn" type="button" 
+          class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-blue-50 text-blue-900 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          새로고침
+        </button>
+        <a href="index.html" 
+          class="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors">
+          ← 전체 목록
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 1. 로딩 스켈레톤 화면 -->
+  <div id="detail-loading" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full flex-1">
+    <div class="h-6 w-48 rounded skeleton mb-6"></div>
+    <div class="bg-white rounded-2xl border border-slate-200 p-8 mb-8">
+      <div class="flex gap-2 mb-4">
+        <div class="h-6 w-24 rounded-full skeleton"></div>
+        <div class="h-6 w-20 rounded-full skeleton"></div>
+      </div>
+      <div class="h-10 w-2/3 rounded skeleton mb-4"></div>
+      <div class="h-5 w-1/2 rounded skeleton"></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="lg:col-span-2 space-y-6">
+        <div class="h-48 rounded-2xl skeleton"></div>
+        <div class="h-64 rounded-2xl skeleton"></div>
+      </div>
+      <div class="h-80 rounded-2xl skeleton"></div>
+    </div>
+  </div>
+
+  <!-- 2. 에러 / 과정 없음 화면 -->
+  <div id="detail-error" class="hidden max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20 w-full flex-1 text-center">
+    <div class="bg-white rounded-2xl border border-slate-200 p-10 shadow-xs">
+      <div class="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900">연수 과정 정보를 불러올 수 없습니다</h2>
+      <p id="detail-error-message" class="text-sm text-slate-500 mt-2">유효하지 않은 과정 코드이거나 일시적인 네트워크 오류입니다.</p>
+      <div class="mt-6 flex items-center justify-center gap-3">
+        <a href="index.html" class="px-5 py-2.5 bg-blue-900 text-white text-sm font-semibold rounded-xl hover:bg-blue-800 transition-colors">
+          전체 직무연수 목록으로 이동
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 실제 상세 콘텐츠 영역 -->
+  <div id="detail-content" class="hidden flex-1 flex flex-col">
+    
+    <!-- 상단 과정 헤더 배너 -->
+    <section class="bg-gradient-to-b from-blue-950 via-blue-900 to-blue-800 text-white pt-8 pb-14 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto">
+        
+        <!-- 브레드크럼 -->
+        <nav class="flex items-center gap-2 text-xs text-blue-200 mb-6 overflow-x-auto whitespace-nowrap">
+          <a href="index.html" class="hover:text-white transition-colors">홈 (직무연수 목록)</a>
+          <span>/</span>
+          <span id="breadcrumb-category" class="text-blue-100 font-medium">분야</span>
+          <span>/</span>
+          <span id="breadcrumb-title" class="text-white font-semibold truncate max-w-xs">과정명</span>
+        </nav>
+
+        <!-- 배지 그룹 -->
+        <div id="detail-badges" class="flex items-center gap-2 flex-wrap mb-4">
+          <!-- JS 동적 생성 -->
+        </div>
+
+        <!-- 과정명 및 한줄 소개 -->
+        <h1 id="detail-title" class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-snug">
+          과정명
+        </h1>
+        <p id="detail-oneline" class="mt-3 text-base sm:text-lg text-blue-100 font-normal max-w-3xl leading-relaxed">
+          한줄 소개
+        </p>
+      </div>
+    </section>
+
+    <!-- 핵심 요약 메타 바 (6칸 그리드) -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-7 z-20 w-full">
+      <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+        <div class="pt-2 sm:pt-0 sm:px-3 first:pl-0">
+          <span class="text-xs text-slate-400 block">교육 방식</span>
+          <span id="meta-bangshik" class="text-sm sm:text-base font-bold text-slate-900 mt-1 block">-</span>
+        </div>
+        <div class="pt-2 sm:pt-0 sm:px-3">
+          <span class="text-xs text-slate-400 block">인정 교육시간</span>
+          <span id="meta-time" class="text-sm sm:text-base font-bold text-blue-900 mt-1 block">-</span>
+        </div>
+        <div class="pt-2 sm:pt-0 sm:px-3">
+          <span class="text-xs text-slate-400 block">교육 대상</span>
+          <span id="meta-target" class="text-sm sm:text-base font-bold text-slate-900 mt-1 block">-</span>
+        </div>
+        <div class="pt-2 sm:pt-0 sm:px-3">
+          <span class="text-xs text-slate-400 block">모집 정원</span>
+          <span id="meta-capacity" class="text-sm sm:text-base font-bold text-slate-900 mt-1 block">-</span>
+        </div>
+        <div class="pt-2 sm:pt-0 sm:px-3">
+          <span class="text-xs text-slate-400 block">교육 기간</span>
+          <span id="meta-edu-period" class="text-xs sm:text-sm font-bold text-slate-900 mt-1 block break-words">-</span>
+        </div>
+        <div class="pt-2 sm:pt-0 sm:px-3">
+          <span class="text-xs text-slate-400 block">신청 기간</span>
+          <span id="meta-apply-period" class="text-xs sm:text-sm font-bold text-emerald-700 mt-1 block break-words">-</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 본문 & 우측 사이드바 2단 레이아웃 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full flex-1">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        
+        <!-- 좌측 본문 (2/3) -->
+        <div class="lg:col-span-2 space-y-8">
+          
+          <!-- 섹션 1: 과정 상세 소개 -->
+          <section class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-2xs">
+            <div class="flex items-center gap-2.5 mb-4">
+              <div class="w-1.5 h-6 bg-blue-900 rounded-full"></div>
+              <h2 class="text-lg sm:text-xl font-bold text-slate-900">과정 상세 소개</h2>
+            </div>
+            <p id="detail-description" class="text-slate-700 text-base leading-relaxed whitespace-pre-line">
+              상세 소개 내용
+            </p>
+          </section>
+
+          <!-- 섹션 2: 학습 목표 -->
+          <section class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-2xs">
+            <div class="flex items-center gap-2.5 mb-5">
+              <div class="w-1.5 h-6 bg-blue-900 rounded-full"></div>
+              <h2 class="text-lg sm:text-xl font-bold text-slate-900">학습 목표</h2>
+            </div>
+            <ul id="detail-goals-list" class="space-y-3">
+              <!-- JS 동적 렌더링 -->
+            </ul>
+          </section>
+
+          <!-- 섹션 3: 주요 교육 내용 (커리큘럼 모듈) -->
+          <section class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-2xs">
+            <div class="flex items-center justify-between mb-5">
+              <div class="flex items-center gap-2.5">
+                <div class="w-1.5 h-6 bg-blue-900 rounded-full"></div>
+                <h2 class="text-lg sm:text-xl font-bold text-slate-900">주요 교육 내용 (커리큘럼)</h2>
+              </div>
+              <span class="text-xs font-medium text-slate-400">핵심 모듈 구성</span>
+            </div>
+            <div id="detail-contents-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <!-- JS 동적 렌더링 -->
+            </div>
+          </section>
+
+          <!-- 이전 / 다음 과정 네비게이션 -->
+          <div id="prev-next-nav" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <!-- JS 동적 렌더링 -->
+          </div>
+        </div>
+
+        <!-- 우측 스티키 사이드바 (1/3) -->
+        <aside class="lg:sticky lg:top-24 space-y-6">
+          
+          <!-- 수강신청 액션 카드 -->
+          <div class="bg-white rounded-2xl border-2 border-blue-900/15 p-6 shadow-md">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+              <span class="text-sm font-bold text-slate-900">수강 신청 안내</span>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                신청 가능
+              </span>
+            </div>
+
+            <div class="py-4 space-y-3 text-sm">
+              <div class="flex justify-between">
+                <span class="text-slate-500">신청 기간</span>
+                <span id="side-apply-period" class="font-bold text-slate-900 text-right">-</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">교육 기간</span>
+                <span id="side-edu-period" class="font-medium text-slate-800 text-right">-</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">모집 정원</span>
+                <span id="side-capacity" class="font-medium text-slate-800 text-right">-</span>
+              </div>
+            </div>
+
+            <!-- 수강신청 바로가기 버튼 -->
+            <a id="side-apply-btn" href="#" target="_blank" rel="noopener noreferrer"
+              class="mt-2 w-full py-3.5 px-4 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2">
+              <span>수강신청 바로가기</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+            <p id="side-apply-url" class="text-[11px] text-slate-400 text-center mt-2 truncate"></p>
+
+            <!-- 링크 공유 버튼 -->
+            <button type="button" onclick="copyCurrentPageUrl()"
+              class="mt-3 w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              과정 안내 링크 복사
+            </button>
+            <p id="copy-toast" class="hidden text-xs text-emerald-600 font-semibold text-center mt-2">
+              ✓ 클립보드에 링크가 복사되었습니다!
+            </p>
+          </div>
+
+          <!-- 담당부서 및 문의처 카드 -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
+            <h3 class="text-sm font-bold text-slate-900 mb-3">담당 부서 및 문의처</h3>
+            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-slate-400">주관 부서</span>
+                <span id="side-dept" class="font-bold text-slate-800">-</span>
+              </div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-slate-400">문의 연락처</span>
+                <span id="side-contact" class="font-bold text-blue-900">-</span>
+              </div>
+            </div>
+            <a id="side-call-link" href="#" 
+              class="mt-3 w-full py-2.5 px-4 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5">
+              📞 담당 부서 전화 연결
+            </a>
+          </div>
+
+        </aside>
+      </div>
+
+      <!-- 같은 분야 추천 연수 과정 -->
+      <section id="related-courses-section" class="mt-14 pt-10 border-t border-slate-200">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">같은 분야의 다른 직무연수 과정</h3>
+            <p class="text-xs text-slate-500 mt-0.5">함께 수강하면 시너지가 나는 연관 교육 과정입니다.</p>
+          </div>
+          <a href="index.html" class="text-xs font-semibold text-blue-900 hover:underline">전체 과정 보기 →</a>
+        </div>
+        <div id="related-courses-grid" class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <!-- JS 동적 렌더링 -->
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- 하단 푸터 -->
+  <footer class="bg-white border-t border-slate-200 mt-auto py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div>
+        <p class="text-xs font-bold text-blue-900">국립부산대학교 교직원 역량개발센터</p>
+        <p class="text-xs text-slate-500 mt-1">
+          (46241) 부산광역시 금정구 부산대학로63번길 2 (장전동) · 대표 문의: 인재개발원 051-510-1231
+        </p>
+      </div>
+      <p class="text-xs text-slate-400">
+        &copy; 2026 Pusan National University. All rights reserved.
+      </p>
+    </div>
+  </footer>
+
+  <!-- 스크립트 연결 -->
+  <script src="js/api.js"></script>
+  <script src="js/detail.js"></script>
+</body>
+</html>
